@@ -1,0 +1,42 @@
+.formuploadAll{
+	width: 600px;
+	border: 1px dashed #80868B;
+	margin: 50px auto;
+}
+
+.fup_btn{
+	width: 120px; /* 宽度 */
+	height: 40px; /* 高度 */
+	border-width: 0px; /* 边框宽度 */
+	border-radius: 3px; /* 边框半径 */
+	background: #1E90FF; /* 背景颜色 */
+	cursor: pointer; /* 鼠标移入按钮范围时出现手势 */
+	outline: none; /* 不显示轮廓线 */
+	font-family: Microsoft YaHei; /* 设置字体 */
+	color: white; /* 字体颜色 */
+	font-size: 16px; /* 字体大小 */
+	margin: 20px 0 0 20px;
+}
+
+.fup_files{
+	width: 120px;
+	height: 80px;
+    position: relative;
+    display: inline-block;
+    border-radius: 12px;
+	margin: 10px 5px;
+	overflow: hidden;
+    background-image: url(../images/upload.png);
+    background-size: 90%;
+    background-repeat: no-repeat;
+    background-position: center;
+}
+
+.fup_files input {
+
+    position: absolute;
+    font-size: 100px;
+    right: 0;
+    top: 0;
+    opacity: 0;
+}
