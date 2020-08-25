@@ -34,6 +34,42 @@ class xinWuliaoModel extends Model
     }
 
     /**
+     * 修改数据
+     * @param $data
+     * @return array
+     */
+    public function update_data($data){
+        try {
+            $res = $this->allowField(true)->isUpdate(true)->save($data);
+            if($res === false){
+                return ['code' => 'fail','msg' => $this->getError()];
+            }else{
+                return ['code' => 'ok'];
+            }
+        }catch (Exception $e){
+            return ['code' => 'fail','msg' => $e->getMessage()];
+        }
+    }
+
+    /**
+     * @param $where
+     * @return array
+     * @throws \Exception
+     */
+    public function del_data($where){
+        try {
+            $res = $this->delete($where);
+            if($res === false){
+                return ['code' => 'fail','msg' => $this->getError()];
+            }else{
+                return ['code' => 'ok'];
+            }
+        }catch (Exception $e){
+            return ['code' => 'fail','msg' => $e->getMessage()];
+        }
+    }
+
+    /**
      * 物料列表
      * @param $where
      * @param string $field

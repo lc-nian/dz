@@ -54,21 +54,29 @@ class UserModel extends Model
 
     /**
      * 查询列表
+     * @param $page
+     * @param $limit
      * @param $where
      * @param string $field
      * @param string $order
      * @return array
      */
-    public function getList($where,$field = '*',$order = 'id'){
+    public function getList($page,$limit,$where,$field = '*',$order = 'id'){
         try {
-            $res = $this->where($where)->field($field)->order($order)->select();
+            $res = $this->where($where)->field($field)->order($order)->paginate($limit,false,['page' => $page]);
             if($res === false){
                 return ['code' => 'fail','msg' => $this->getError()];
             }else{
-                return ['code' => 'ok','data' => $res];
+                $data = [
+                    'count' => $res->total(),//总记录数
+                    'page' => $res->currentPage(),//当前页码
+                    'limit' => $res->listRows(),//每页记录数
+                    'list' => $res->items(),//分页数据
+                ];
+                return ['code' => 'ok','data' => $data];
             }
         }catch (Exception $e){
-            return ['code' => 'fail','msg' => $this->getMessage()];
+            return ['code' => 'fail','msg' => $e->getMessage()];
         }
     }
 

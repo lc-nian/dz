@@ -21,7 +21,7 @@ class PartModel extends Model
      * @param string $order
      * @return array
      */
-    public function getList($where,$field = '',$order = ''){
+    public function getList($where,$field = '*',$order = ''){
         try {
             $res = $this->where($where)->field($field)->order($order)->select()->toArray();
             if($res === false){

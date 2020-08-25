@@ -4,10 +4,12 @@
 namespace app\api\controller;
 
 use app\api\model\AgentModel;
+use app\api\model\BracketModel;
 use app\api\model\KanchaModel;
 use app\api\model\OwnerModel;
 use app\api\model\PartModel;
 use app\api\model\QingyouModel;
+use app\api\model\ShejituModel;
 use app\api\model\UserModel;
 use app\api\model\xinWuliaoModel;
 use app\api\model\ZuModel;
@@ -94,12 +96,15 @@ class OwnerController extends BaseController
             if($this->param['end_time'] != ''){//结束时间
                 $where[] = ['o.create_time','elt',strtotime($this->param['end_time'])+24*60*60];
             }
+            $page = $this->param['page']?$this->param['page'] : 1;
+            $limit = $this->param['limit']?$this->param['limit'] : 15;
+
             //查询列表
-            $list = $this->owner->owner_list($where,'o.y_id,o.farmers_number,o.owner_name,o.zhuzhi,a.institution,o.add_time,o.kan');
+            $list = $this->owner->owner_list($page,$limit,$where,'o.y_id,o.farmers_number,o.owner_name,o.zhuzhi,a.institution,o.add_time,o.kan');
             if($list['code'] != 'ok'){
                 return $this->_api_return(400,'失败');
             }
-            $this->response['list'] = $list['data'];
+            $this->response = $list['data'];
             return $this->_api_return(200,'成功');
         }
     }
@@ -373,20 +378,64 @@ class OwnerController extends BaseController
             if($this->param['status'] != ''){//订单状态
                 $where[] = ['o.status', '=' ,$this->param['status']];
             }
+            $page = $this->param['page']?$this->param['page'] : 1;
+            $limit = $this->param['limit']?$this->param['limit'] : 15;
 
             $kancha = new KanchaModel();
-            $kancah_list = $kancha->kancha_list($where,'o.y_id,k.sheet_number,o.owner_name,o.zhuzhi,a.abbreviation,o.d_type,k.create_time,o.status','k.create_time');
+            $kancah_list = $kancha->kancha_list($page,$limit,$where,'o.y_id,k.sheet_number,o.owner_name,o.zhuzhi,a.abbreviation,o.d_type,k.create_time,o.status','k.create_time');
             if($kancah_list['code'] != 'ok'){
                 return $this->_api_return(400,'失败');
             }
-            if($kancah_list['data']){
-                foreach ($kancah_list['data'] as &$v){
+            if($kancah_list['data'] && $kancah_list['data']['list']){
+                foreach ($kancah_list['data']['list'] as &$v){
                     $v['time'] = date('Y-m-d',strtotime($v['create_time']));
                 }
             }
 
-            $this->response['list'] = $kancah_list['data'];
+            $this->response = $kancah_list['data'];
             return $this->_api_return(200,'成功');
+        }
+    }
+
+    /**
+     * 勘察记录信息~作废
+     * @param Request $request
+     */
+    public function kancha_invalid(Request $request){
+        if($request->isPost()){
+            $info = $this->owner->getInfo(['y_id' => $this->param['y_id']]);
+            if($info['code'] != 'ok' || !$info['data']){
+                return $this->_api_return(400,'查询错误');
+            }
+            if($info['data']['status'] != 1){
+                return $this->_api_return(400,'不是创建中记录，无法作废');
+            }
+            $res = $this->owner->update_data(['y_id' => $this->param['y_id'],'status' => 0]);
+            if($res['code'] != 'ok'){
+                return $this->_api_return(400,'作废失败');
+            }
+            return $this->_api_return(200,'作废成功');
+        }
+    }
+
+    /**
+     * 勘察记录信息~激活
+     * @param Request $request
+     */
+    public function kancha_activate(Request $request){
+        if($request->isPost()){
+            $info = $this->owner->getInfo(['y_id' => $this->param['y_id']]);
+            if($info['code'] != 'ok' || !$info['data']){
+                return $this->_api_return(400,'查询错误');
+            }
+            if($info['data']['status'] != 0){
+                return $this->_api_return(400,'不是已作废记录，无法作废');
+            }
+            $res = $this->owner->update_data(['y_id' => $this->param['y_id'],'status' => 1]);
+            if($res['code'] != 'ok'){
+                return $this->_api_return(400,'激活失败');
+            }
+            return $this->_api_return(200,'激活成功');
         }
     }
 
@@ -487,13 +536,76 @@ class OwnerController extends BaseController
     }
 
     /**
+     * 勘察信息~业主物料数量修改
+     * @param Request $request
+     */
+    public function part_update(Request $request){
+        if($request->isPost()){
+            if(empty($this->param['x_id'])){
+                return $this->_api_return(400,'参数错误');
+            }
+            if($this->param['number'] < 0){
+                return $this->_api_return(400,'组件数量不能小于0');
+            }
+            $wuliao = new xinWuliaoModel();
+            $res = $wuliao->update_data($this->param);
+            if($res['code'] != 'ok'){
+                return $this->_api_return(400,'修改失败');
+            }
+            return $this->_api_return(200,'成功');
+        }
+    }
+
+    /**
+     * 勘察信息~业主物料数量删除
+     * @param Request $request
+     */
+    public function part_del(Request $request){
+        if($request->isPost()){
+            $res = db('xin_wuliao')->where('x_id',$this->param['x_id'])->delete();
+            if($res){
+                return $this->_api_return(200,'成功');
+            }
+            return $this->_api_return(400,'失败');
+        }
+    }
+
+    /**
+     * 勘察信息~提交设计信息
+     * @param Request $request
+     */
+    public function design_insert(Request $request){
+        if($request->isPost()){
+            $shejitu = new ShejituModel();
+            $add_sjt = $shejitu->save_data($this->param);
+            if($add_sjt['code'] != 'ok'){
+                return $this->_api_return(400,'勘察设计图添加失败');
+            }
+            if($this->param['bracket']){
+                $bracket_arr = explode(',',$this->param['bracket']);
+                $bracket = [];
+                foreach ($bracket_arr as $k => $v){
+                    $bracket[$k]['o_id'] = $this->param['o_id'];//业主id
+                    $bracket[$k]['zu_id'] = $v;//组件支架标准图的id
+                }
+                $bra = new BracketModel();
+                $res = $bra->saveall_data($bracket);
+                if($res['code'] != 'ok'){
+                    return $this->_api_return(400,'组件支架标准图添加失败');
+                }
+            }
+            return $this->_api_return(200,'成功');
+        }
+    }
+
+    /**
      * 勘察信息~设计信息
      * @param Request $request
      */
     public function design_data(Request $request){
         if($request->isPost()){
             $part = new xinWuliaoModel();
-            $part_list = $part->part_list(['xw.o_id' => $this->param['o_id']],'p.stock,p.material,p.specification,xw.number,p.unit,p.materials,p.power,p.price');
+            $part_list = $part->part_list(['xw.o_id' => $this->param['o_id']],'xw.x_id,p.stock,p.material,p.specification,xw.number,p.unit,p.materials,p.power,p.price');
             if($part_list['code'] != 'ok'){
                 return $this->_api_return(400,'物料信息错误');
             }
@@ -510,10 +622,29 @@ class OwnerController extends BaseController
                 }
             }
 
-            $zu = new ZuModel();
-            $zu_list = $zu->getList([['type','neq',4]],'*','type,z_id');
-            if($zu_list['code'] != 'ok'){
-                return $this->_api_return(4000,$zu_list['msg']);
+            $shejitu = new ShejituModel();//实例化勘察设计图表
+            $sheji_info = $shejitu->getInfo(['o_id' => $this->param['o_id']]);//设计图展示
+            if($sheji_info['code'] != 'ok'){
+                return $this->_api_return(400,'设计图查询失败');
+            }
+
+            $zu = new ZuModel();//实例化系统组件支架标准图纸表
+            $ping_list = $zu->getList(['type' => 1],'z_id,title_name,file','z_id');//平屋面图纸
+            if($ping_list['code'] != 'ok'){
+                return $this->_api_return(400,'平屋面图纸查询失败');
+            }
+            $base_list = $zu->getList(['type' => 2],'z_id,title_name,file','z_id');//基础图纸
+            if($base_list['code'] != 'ok'){
+                return $this->_api_return(400,'基础图纸查询失败');
+            }
+            $xie_list = $zu->getList(['type' => 3],'z_id,title_name,file','z_id');//斜屋面图纸
+            if($xie_list['code'] != 'ok'){
+                return $this->_api_return(400,'斜屋面图纸查询失败');
+            }
+            $bracket = new BracketModel();
+            $bracket_list = $bracket->getList(['o_id' => $this->param['o_id']],'zu_id');
+            if($bracket_list['code'] != 'ok'){
+                return $this->_api_return(400,'组件支架标准图查询失败');
             }
 
             $data = [
@@ -521,11 +652,56 @@ class OwnerController extends BaseController
                 'total_number' => $total_number,//组件数量
                 'total_capacity' => $total_capacity,//装机容量
                 'total_price' => $total_price,//参考总价
-                'zu' => $zu_list['data'],//组件支架标准图纸
+                'sheji_info' => $sheji_info['data'],//设计图展示
+                'ping_list' => $ping_list['data'],//平屋面图纸
+                'base_list' => $base_list['data'],//基础图纸
+                'xie_list' => $xie_list['data'],//斜屋面图纸
+                'other' => 1,//组件支架标准图纸~其他类型id
+                'bracket' => $bracket_list['data'],//选中的组件支架标准图
             ];
 
             $this->response = $data;
             return $this->_api_return(200,'成功');
+        }
+    }
+
+    /**
+     * 勘察信息~资料归档
+     * @param Request $request
+     */
+    public function material_data(Request $request){
+        if($request->isPost()){
+            $info = $this->owner->getInfo(['y_id' => $this->param['o_id']],'sfz_fu,fcz');
+            if($info['code'] != 'ok'){
+                return $this->_api_return(400,'查询失败');
+            }
+            $this->response = $info['data'];
+            return $this->_api_return(200,'成功');
+        }
+    }
+
+    /**
+     * 勘察记录提交
+     */
+    public function kancha_submit(Request $request){
+        if($request->isPost()){
+            $info = $this->owner->getInfo(['y_id' => $this->param['o_id']]);
+            if($info['code'] != 'ok' || !$info['data']){
+                return $this->_api_return(400,'查询错误');
+            }
+            if($info['data']['status'] != 1){
+                return $this->_api_return(400,'不是创建中记录，无法提交');
+            }
+            $kc = new KanchaModel();
+            $info = $kc->check(['o_id' => $this->param['o_id']]);
+            if($info['code'] != 'ok'){
+                return $this->_api_return(400,$info['msg']);
+            }
+            $res = $this->owner->update_data(['y_id' => $this->param['o_id'],'status' => 3]);
+            if($res['code'] != 'ok'){
+                return $this->_api_return(400,'提交失败');
+            }
+            return $this->_api_return(200,'提交成功');
         }
     }
 }

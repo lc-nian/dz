@@ -13,7 +13,7 @@
 
 //图片上传
 function imgUp($file){
-    $info = $file->move('../uploads/img');
+    $info = $file->move('./uploads/img');
     $name = "/uploads/img/".$info->getSaveName();
     $imgPath = str_replace('\\','/',$name);
 

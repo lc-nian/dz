@@ -114,17 +114,20 @@ class UserController extends BaseController
             if(empty($info)){
                 return $this->_api_return(400,'信息错误');
             }
+            $page = $this->param['page']?$this->param['page'] : 1;
+            $limit = $this->param['limit']?$this->param['limit'] : 15;
 
-            $list = $this->user->getList(['a_id' => $info['a_id']],'id,a_id,account,name,status,type');
+            $list = $this->user->getList($page,$limit,['a_id' => $info['a_id']],'id,a_id,account,name,status,type');
             if($list['code'] != 'ok'){
-                return $this->_api_return(400,'列表信息错误');
+                return $this->_api_return(400,$list['msg']);
             }
-            if($list['data']){
-                foreach ($list['data'] as &$v){
+            if($list['data'] && $list['data']['list']){
+                foreach ($list['data']['list'] as &$v){
                     $v['abbreviation'] = db('agent')->where('id',$v['a_id'])->value('abbreviation');//机构简称
                 }
             }
-            $this->response['list'] = $list['data'];
+
+            $this->response = $list['data'];
             return $this->_api_return(200,'成功');
         }
     }
