@@ -96,6 +96,11 @@ class OwnerController extends BaseController
             if($this->param['end_time'] != ''){//结束时间
                 $where[] = ['o.create_time','elt',strtotime($this->param['end_time'])+24*60*60];
             }
+            $user = new UserModel();
+            $user_info = $user->getInfo(['id' => $this->user_id]);
+            if($user_info['type'] == 2){
+                $where[] = ['o.developers_id','=',$this->user_id];
+            }
             $page = $this->param['page']?$this->param['page'] : 1;
             $limit = $this->param['limit']?$this->param['limit'] : 15;
 
@@ -148,24 +153,19 @@ class OwnerController extends BaseController
             }
 
             if(empty($kancha_info['data'])){
-                $set = db('set')->where('id',1)->value('sheet_number');//意向单信息编号
-                $kancha_info['data']['sheet_number'] = 'Y' . date('Y') . sprintf("%08d", $set+1);//生成8位数，不足前面补0 意向单信息编号
                 $kancha_info['data']['create_time'] = date('Y-m-d H:i:s',time());//制单时间
-
-                db('set')->where('id',1)->setInc('farmers_number');//编号加1
-
-//                $save = $kancha->save_data(['o_id' => $this->param['y_id'],'sheet_number' => $sheet_number]);
-//                if($save['code'] != 'ok'){
-//                    return $this->_api_return(400,'编号错误');
-//                }
             }
             $kancha_info['data']['time'] = strtotime($kancha_info['data']['create_time']);//制单时间
 
-            $owner_info = $this->owner->getInfo(['y_id' => $this->param['y_id']],'y_id,farmers_number,d_type,developers_id,y_name,sfz,y_type,owner_name,owner_phone,email,zhuzhi,c_zhuzhi,order');
+            $owner_info = $this->owner->getInfo(['y_id' => $this->param['y_id']],'y_id,farmers_number,sheet_number,d_type,developers_id,y_name,sfz,y_type,owner_name,owner_phone,email,zhuzhi,c_zhuzhi,order');
             if($owner_info['code'] != 'ok'){
                 return $this->_api_return(400,'业主信息错误');
             }
-
+            if (empty($owner_info['data'])){
+                $set = db('set')->where('id',1)->value('sheet_number');//意向单信息编号
+                $owner_info['data']['sheet_number'] = 'Y' . date('Y') . sprintf("%08d", $set+1);//生成8位数，不足前面补0 意向单信息编号
+                db('set')->where('id',1)->setInc('farmers_number');//编号加1
+            }
             $agent = new AgentModel();
             $agent_info = $agent->getInfo(['id' => $owner_info['data']['developers_id']]);//代理商信息
             if($agent_info['code'] != 'ok'){
@@ -180,7 +180,7 @@ class OwnerController extends BaseController
                 return $this->_api_return(400,'亲友信息错误');
             }
 
-            $owner_info['data']['sheet_number'] = $kancha_info['data']['sheet_number'];//意向单编号
+//            $owner_info['data']['sheet_number'] = $owner_info['data']['sheet_number'];//意向单编号
             $owner_info['data']['zhi'] = $user_info['name'];//制单人
             $owner_info['data']['developer'] = $agent_info['data']['institution'];//开发商
             $owner_info['data']['service'] = $agent_info['data']['institution'];//服务商
@@ -193,6 +193,30 @@ class OwnerController extends BaseController
     }
 
     /**
+     * 业主信息
+     */
+    public function owner_message(Request $request){
+        if($request->isPost()){
+            if(!$this->param['owner_name']){
+                return $this->_api_return(400,'业主姓名不能为空');
+            }
+            $user = new UserModel();
+            $user_info = $user->getInfo(['id' => $this->user_id]);
+            if($user_info['type'] == 2){
+                $where[] = ['developers_id','=',$this->user_id];
+            }
+            $where[] = ['owner_name','like', '%' . trim($this->param['owner_name']) . '%'];
+            $where[] = ['kan','=', 0];
+            $list = $this->owner->getList($where,'y_id,owner_name,owner_phone,email,zhuzhi,c_zhuzhi');
+            if($list['code'] != 'ok'){
+                return $this->_api_return(400,'查询失败');
+            }
+            $this->response['list'] = $list['data'];
+            return $this->_api_return(200,'查询成功');
+        }
+    }
+
+    /**
      * 意向单勘察信息添加
      */
     public function kancha_insert(Request $request){
@@ -201,6 +225,7 @@ class OwnerController extends BaseController
             if (!$validate->check($this->param,'','check')) {
                 return $this->_api_return(400, $validate->getError());
             }
+
             $owner_data = [
                 'y_id' => $this->param['y_id'],//业主编号
                 'd_type' => $this->param['d_type'],//电站类型
@@ -213,6 +238,7 @@ class OwnerController extends BaseController
                 'zhuzhi' => $this->param['zhuzhi'],//项目地址
                 'c_zhuzhi' => $this->param['c_zhuzhi'],//常驻地址
                 'zhi' => $this->user_id,//制单人id
+                'kan' => 1,
             ];
             $owber_save = $this->owner->update_data($owner_data);
             if($owber_save['code'] != 'ok'){
@@ -378,6 +404,12 @@ class OwnerController extends BaseController
             if($this->param['status'] != ''){//订单状态
                 $where[] = ['o.status', '=' ,$this->param['status']];
             }
+            $user = new UserModel();
+            $user_info = $user->getInfo(['id' => $this->user_id]);
+            if($user_info['type'] == 2){
+                $where[] = ['o.developers_id','=',$this->user_id];
+            }
+
             $page = $this->param['page']?$this->param['page'] : 1;
             $limit = $this->param['limit']?$this->param['limit'] : 15;
 
@@ -697,7 +729,7 @@ class OwnerController extends BaseController
             if($info['code'] != 'ok'){
                 return $this->_api_return(400,$info['msg']);
             }
-            $res = $this->owner->update_data(['y_id' => $this->param['o_id'],'status' => 3]);
+            $res = $this->owner->update_data(['y_id' => $this->param['o_id'],'status' => 2]);
             if($res['code'] != 'ok'){
                 return $this->_api_return(400,'提交失败');
             }

@@ -38,7 +38,7 @@ class Owner extends Validate
     ];
 
     protected $scene = [
-        'send' => ['y_id','owner_name','owner_phone','earnest','zhuzhi','c_zhuzhi','farmers_number'],
+        'send' => ['owner_name','owner_phone','earnest','zhuzhi','c_zhuzhi','farmers_number'],
         'check' => ['y_id','sheet_number','d_type','y_name','y_type','owner_name','sfz','owner_phone','zhuzhi','c_zhuzhi'],
     ];
 }

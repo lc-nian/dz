@@ -27,6 +27,7 @@ class BaseController extends PublicController
     public function _initialize()
     {
         //保存参数
+//        halt(1);
         $this->setAction();
         //不需要 Token 验证的方法
         $ext = [

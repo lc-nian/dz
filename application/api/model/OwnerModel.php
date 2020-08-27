@@ -101,4 +101,24 @@ class OwnerModel extends Model
             return ['code' => 'fail','msg' => $e->getMessage()];
         }
     }
+
+    /**
+     * 查询列表
+     * @param $where
+     * @param string $field
+     * @param string $order
+     * @return array
+     */
+    public function getList($where,$field = '*',$order = ''){
+        try{
+            $res = $this->field($field)->where($where)->order($order)->select();
+            if($res === false){
+                return ['code' => 'fail','msg' => $this->getError()];
+            }else{
+                return ['code' => 'ok','data' => $res];
+            }
+        }catch (Exception $e){
+            return ['code' => 'fail','msg' => $e->getMessage()];
+        }
+    }
 }
